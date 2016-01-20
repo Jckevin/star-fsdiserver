@@ -1,6 +1,7 @@
 package com.starunion.jee.fsdiserver.service;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.text.ParseException;
@@ -20,18 +21,22 @@ import com.starunion.jee.fsdiserver.dao.DaoIntercomGroup;
 import com.starunion.jee.fsdiserver.dao.DaoIntercomMember;
 import com.starunion.jee.fsdiserver.dao.DaoPrePlayInfo;
 import com.starunion.jee.fsdiserver.dao.DaoUserGpsInfo;
+import com.starunion.jee.fsdiserver.dao.DaoUserGpsTrail;
 import com.starunion.jee.fsdiserver.dao.DaoUserSip;
 import com.starunion.jee.fsdiserver.dao.DaoUserSipBlack;
 import com.starunion.jee.fsdiserver.dao.DaoUserSipCamer;
+import com.starunion.jee.fsdiserver.po.ClientBindInfo;
 import com.starunion.jee.fsdiserver.po.IntercomGroup;
 import com.starunion.jee.fsdiserver.po.IntercomMember;
 import com.starunion.jee.fsdiserver.po.PrePlayInfo;
 import com.starunion.jee.fsdiserver.po.SipActiveInfo;
 import com.starunion.jee.fsdiserver.po.UserGpsInfo;
+import com.starunion.jee.fsdiserver.po.UserGpsTrail;
 import com.starunion.jee.fsdiserver.po.UserSip;
 import com.starunion.jee.fsdiserver.po.UserSipBlack;
 import com.starunion.jee.fsdiserver.po.UserSipCamer;
 import com.starunion.jee.fsdiserver.service.timer.QuartzTaskService;
+import com.starunion.jee.fsdiserver.thread.ClientTcpSocket;
 import com.starunion.jee.fsdiserver.thread.FsTcpSocket;
 
 
@@ -56,11 +61,15 @@ public class ProcClientRequest implements IMsgTypeDef {
 	@Autowired
 	private DaoUserGpsInfo daoUserGpsInfo;
 	@Autowired
+	private DaoUserGpsTrail daoUserGpsTrail;
+	@Autowired
 	private InitTerStatus initTerStatus;
 	@Autowired
 	private QuartzTaskService timerTask;
 	@Autowired
 	private ProcLinuxCommand procLinuxCmd;
+	@Autowired
+	ProcFsResponse procFsResponse;
 
 	public ProcClientRequest() {
 
@@ -71,7 +80,7 @@ public class ProcClientRequest implements IMsgTypeDef {
 		String[] parts = reqBuff.toString().split(":");
 		int partsLen = parts.length;
 
-		if (parts[0].startsWith(DISP_DLOGIN)) {
+		if (parts[0].startsWith(DISP_DLOGIN)||parts[0].startsWith(DISP_LOGIN)) {
 			logger.debug("receive client request type [{}]", parts[0]);
 			if (partsLen < 3) {
 				rspBuff = makeLastResponse(reqBuff, FAILURE);
@@ -83,9 +92,9 @@ public class ProcClientRequest implements IMsgTypeDef {
 				rspBuff = makeLastResponse(reqBuff, FAILURE);
 			}
 			return rspBuff;
-		} else if (parts[0].startsWith(DISP_SHOW_DUSERS)) {
+		} else if (parts[0].startsWith(DISP_SHOW_DUSERS)||parts[0].startsWith(DISP_SHOW_USERS)) {
 			logger.debug("receive client request type [{}]", parts[0]);
-			if (partsLen < 2) {
+			if (parts[0].startsWith(DISP_SHOW_DUSERS) && partsLen < 2) {
 				rspBuff = makeLastResponse(reqBuff, FAILURE);
 				return rspBuff;
 			}
@@ -354,7 +363,15 @@ public class ProcClientRequest implements IMsgTypeDef {
 			int res = procExtenGpsAdd(parts);
 			rspBuff.append(reqBuff);
 			if(res == 1){
-				rspBuff = makeLastResponse(rspBuff, SUCCESS);	
+				rspBuff = makeLastResponse(rspBuff, SUCCESS);
+				//simply and directly
+				StringBuffer strBuff = new StringBuffer();
+				strBuff.append(DISP_GPS_EXTEN_NOTIFY);
+				strBuff.append(":");
+				strBuff.append(parts[1]).append(":");
+				strBuff.append(parts[2]).append(":");
+				strBuff.append(parts[3]).append("\r\n");
+				procFsResponse.SendClientNotify(strBuff.toString());
 			}else{
 				rspBuff = makeLastResponse(rspBuff, FAILURE);
 			}
@@ -373,14 +390,39 @@ public class ProcClientRequest implements IMsgTypeDef {
 				rspBuff = makeLastResponse(rspBuff, FAILURE);
 			}
 			return rspBuff;
-		} else {
+		} else if (parts[0].startsWith(DISP_GPS_EXTEN_TRAIL)) {
+			logger.debug("receive client request type [{}]", parts[0]);
+		if (partsLen < 2) {
+			rspBuff = makeLastResponse(reqBuff, FAILURE);
+			return rspBuff;
+		}
+		rspBuff = procExtenGpsTrailShow(parts);
+		rspBuff.append(reqBuff);
+		rspBuff = makeLastResponse(rspBuff, SUCCESS);
+		return rspBuff;
+	} else {
 			logger.info("receive unkown client request message type = {}", parts[0]);
 			rspBuff = makeLastResponse(reqBuff, FAILURE);
 			return rspBuff;
 		}
 
 	}
-
+	
+	private StringBuffer procExtenGpsTrailShow(String[] data) {
+		List<UserGpsTrail> gpsList = new ArrayList<UserGpsTrail>();
+		gpsList = daoUserGpsTrail.findByNumber(data[1]);
+		StringBuffer buff = new StringBuffer();
+		for (UserGpsTrail trail : gpsList) {
+			buff.append("extenmapdata:");
+			buff.append(trail.getExten()).append(":");
+			buff.append(trail.getLng()).append(":");
+			buff.append(trail.getLat()).append(":");
+			buff.append(trail.getTime());
+			buff.append("\r\n");
+		}
+		return buff;
+	}
+	
 	private int procExtenGpsDel(String[] data) {
 		String exten = data[1];
 		UserGpsInfo extenInfo = daoUserGpsInfo.findByNumber(exten);
@@ -397,6 +439,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 		String lat = data[3];
 		UserGpsInfo extenInfo = daoUserGpsInfo.findByNumber(exten);
 		if(extenInfo != null){
+			daoUserGpsInfo.updateGpsByNumber(exten, lng, lat);
+			daoUserGpsTrail.addExtenGpsTrail(exten, lng, lat);
 			return -1;
 		}
 		int res = daoUserGpsInfo.addExtenGps(exten, lng, lat);
@@ -1029,6 +1073,9 @@ public class ProcClientRequest implements IMsgTypeDef {
 		String name = data[1];
 		String passwd = data[2];
 		UserSip user = daoUserSip.findByNumber(name);
+		if(user == null){
+			return FAILURE;	
+		}
 		logger.debug("get user with name = {},passwd = {}", user.getName(), user.getPassword());
 		if (passwd.equals(user.getPassword())) {
 			return SUCCESS;
@@ -1066,7 +1113,7 @@ public class ProcClientRequest implements IMsgTypeDef {
 			Map.Entry<String, SipActiveInfo> entry = iter.next();
 			buff.append("peer:");
 			buff.append(entry.getKey() + ":");
-			logger.debug("get key from activeUserMap : {}",entry.getKey());
+//			logger.debug("get key from activeUserMap : {}",entry.getKey());
 			buff.append(entry.getValue().getStatus());
 			buff.append("\r\n");
 		}

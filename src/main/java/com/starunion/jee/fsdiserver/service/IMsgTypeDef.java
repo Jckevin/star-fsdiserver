@@ -99,9 +99,11 @@ public interface IMsgTypeDef {
 	
 	// gps info relevant
 	static final String DISP_GPS_EXTEN_ADD = "extenmapadd";
-	static final String DISP_GPS_EXTEN_DEL = "delextenmap";
+	static final String DISP_GPS_EXTEN_DEL = "extenmapdel";
 	static final String DISP_GPS_EXTEN_SHOW = "showextenmap";
 	static final String DISP_GPS_EXTEN_SHOW_ALL = "showallextenmap";
+	static final String DISP_GPS_EXTEN_NOTIFY = "extenmapdata";
+	static final String DISP_GPS_EXTEN_TRAIL = "extenmaptrail";
 	
 	
 	public final String ESL_EVENT_CUSTOM = "";

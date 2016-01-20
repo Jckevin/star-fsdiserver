@@ -46,7 +46,7 @@ public class DaoUserGpsInfo extends DbUtilsTemplate {
 		return res;
 	}
 	
-	public int updateGpsByNumber(String number,double lng,double lat){
+	public int updateGpsByNumber(String number,String lng,String lat){
 		StringBuffer sql = new StringBuffer();
 		sql.append("update dis_exten_gis set lng = ");
 		sql.append(lng);
