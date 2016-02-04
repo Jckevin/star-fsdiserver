@@ -11,12 +11,14 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.starunion.jee.fsdiserver.beginning.StarallyUtils;
 import com.starunion.jee.fsdiserver.dao.DaoIntercomGroup;
 import com.starunion.jee.fsdiserver.dao.DaoIntercomMember;
 import com.starunion.jee.fsdiserver.dao.DaoPrePlayInfo;
@@ -39,10 +41,10 @@ import com.starunion.jee.fsdiserver.service.timer.QuartzTaskService;
 import com.starunion.jee.fsdiserver.thread.ClientTcpSocket;
 import com.starunion.jee.fsdiserver.thread.FsTcpSocket;
 
-
 @Service
 public class ProcClientRequest implements IMsgTypeDef {
-	private static final Logger logger = LoggerFactory.getLogger(ProcClientRequest.class);
+	private static final Logger logger = LoggerFactory
+			.getLogger(ProcClientRequest.class);
 
 	@Autowired
 	private FsTcpSocket fsSocket;
@@ -70,6 +72,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 	private ProcLinuxCommand procLinuxCmd;
 	@Autowired
 	ProcFsResponse procFsResponse;
+	@Autowired
+	StarallyUtils slutils;
 
 	public ProcClientRequest() {
 
@@ -80,7 +84,7 @@ public class ProcClientRequest implements IMsgTypeDef {
 		String[] parts = reqBuff.toString().split(":");
 		int partsLen = parts.length;
 
-		if (parts[0].startsWith(DISP_DLOGIN)||parts[0].startsWith(DISP_LOGIN)) {
+		if (parts[0].startsWith(DISP_DLOGIN) || parts[0].startsWith(DISP_LOGIN)) {
 			logger.debug("receive client request type [{}]", parts[0]);
 			if (partsLen < 3) {
 				rspBuff = makeLastResponse(reqBuff, FAILURE);
@@ -92,7 +96,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 				rspBuff = makeLastResponse(reqBuff, FAILURE);
 			}
 			return rspBuff;
-		} else if (parts[0].startsWith(DISP_SHOW_DUSERS)||parts[0].startsWith(DISP_SHOW_USERS)) {
+		} else if (parts[0].startsWith(DISP_SHOW_DUSERS)
+				|| parts[0].startsWith(DISP_SHOW_USERS)) {
 			logger.debug("receive client request type [{}]", parts[0]);
 			if (parts[0].startsWith(DISP_SHOW_DUSERS) && partsLen < 2) {
 				rspBuff = makeLastResponse(reqBuff, FAILURE);
@@ -169,7 +174,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 				rspBuff = makeLastResponse(reqBuff, SUCCESS);
 			}
 			return rspBuff;
-		} else if (parts[0].startsWith(DISP_BRIDGE_CALL) || parts[0].startsWith(DISP_DEMOLION_CALL)) {
+		} else if (parts[0].startsWith(DISP_BRIDGE_CALL)
+				|| parts[0].startsWith(DISP_DEMOLION_CALL)) {
 			logger.debug("receive client request type [{}]", parts[0]);
 			if (partsLen < 3) {
 				rspBuff = makeLastResponse(reqBuff, FAILURE);
@@ -219,7 +225,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 				rspBuff = makeLastResponse(reqBuff, SUCCESS);
 			}
 			return rspBuff;
-		} else if (parts[0].startsWith(DISP_NIGHT_CALL) || (parts[0].startsWith(DISP_UNIGHT_CALL))) {
+		} else if (parts[0].startsWith(DISP_NIGHT_CALL)
+				|| (parts[0].startsWith(DISP_UNIGHT_CALL))) {
 			logger.debug("receive client request type [{}]", parts[0]);
 			if (parts[0].startsWith(DISP_NIGHT_CALL) && partsLen < 3) {
 				rspBuff = makeLastResponse(reqBuff, FAILURE);
@@ -263,7 +270,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 				rspBuff = makeLastResponse(reqBuff, SUCCESS);
 			}
 			return rspBuff;
-		} else if (parts[0].startsWith(DISP_MEET_KICK) || parts[0].startsWith(DISP_MEET_MUTE)
+		} else if (parts[0].startsWith(DISP_MEET_KICK)
+				|| parts[0].startsWith(DISP_MEET_MUTE)
 				|| parts[0].startsWith(DISP_MEET_UNMUTE)) {
 			logger.debug("receive client request type [{}]", parts[0]);
 			if (partsLen < 3) {
@@ -362,9 +370,9 @@ public class ProcClientRequest implements IMsgTypeDef {
 			}
 			int res = procExtenGpsAdd(parts);
 			rspBuff.append(reqBuff);
-			if(res == 1){
+			if (res == 1) {
 				rspBuff = makeLastResponse(rspBuff, SUCCESS);
-				//simply and directly
+				// simply and directly
 				StringBuffer strBuff = new StringBuffer();
 				strBuff.append(DISP_GPS_EXTEN_NOTIFY);
 				strBuff.append(":");
@@ -372,7 +380,7 @@ public class ProcClientRequest implements IMsgTypeDef {
 				strBuff.append(parts[2]).append(":");
 				strBuff.append(parts[3]).append("\r\n");
 				procFsResponse.SendClientNotify(strBuff.toString());
-			}else{
+			} else {
 				rspBuff = makeLastResponse(rspBuff, FAILURE);
 			}
 			return rspBuff;
@@ -384,61 +392,107 @@ public class ProcClientRequest implements IMsgTypeDef {
 			}
 			int res = procExtenGpsDel(parts);
 			rspBuff.append(reqBuff);
-			if(res == 1){
-				rspBuff = makeLastResponse(rspBuff, SUCCESS);	
-			}else{
+			if (res == 1) {
+				rspBuff = makeLastResponse(rspBuff, SUCCESS);
+			} else {
 				rspBuff = makeLastResponse(rspBuff, FAILURE);
 			}
 			return rspBuff;
 		} else if (parts[0].startsWith(DISP_GPS_EXTEN_TRAIL)) {
 			logger.debug("receive client request type [{}]", parts[0]);
-		if (partsLen < 2) {
-			rspBuff = makeLastResponse(reqBuff, FAILURE);
+			if (partsLen < 2) {
+				rspBuff = makeLastResponse(reqBuff, FAILURE);
+				return rspBuff;
+			}
+			rspBuff = procExtenGpsTrailShow(parts);
+			rspBuff.append(reqBuff);
+			rspBuff = makeLastResponse(rspBuff, SUCCESS);
 			return rspBuff;
-		}
-		rspBuff = procExtenGpsTrailShow(parts);
-		rspBuff.append(reqBuff);
-		rspBuff = makeLastResponse(rspBuff, SUCCESS);
-		return rspBuff;
-	} else {
-			logger.info("receive unkown client request message type = {}", parts[0]);
+		} else if (parts[0].startsWith(DISP_GPS_EXTEN_TRAIL_TIME)) {
+			logger.debug("receive client request type [{}]", parts[0]);
+			if (partsLen < 4) {
+				rspBuff = makeLastResponse(reqBuff, FAILURE);
+				return rspBuff;
+			}
+			rspBuff = procExtenGpsTrailShowByTime(parts);
+			rspBuff.append(reqBuff);
+			rspBuff = makeLastResponse(rspBuff, SUCCESS);
+			return rspBuff;
+		} else if (parts[0].startsWith("test")) {
+			logger.debug("receive client request type [{}]", parts[0]);
+			if (partsLen < 2) {
+				rspBuff = makeLastResponse(reqBuff, FAILURE);
+				return rspBuff;
+			}
+			procTestService(parts);
+			rspBuff.append(reqBuff);
+			rspBuff = makeLastResponse(rspBuff, SUCCESS);
+			return rspBuff;
+		} else {
+			logger.info("receive unkown client request message type = {}",
+					parts[0]);
 			rspBuff = makeLastResponse(reqBuff, FAILURE);
 			return rspBuff;
 		}
 
 	}
-	
+	private int procTestService(String[] data){
+//		daoUserSip.batchInsertUser(data[1], data[2], data[3], data[4]);
+		daoUserGpsTrail.batchInsertGps(data[1]);
+		return 0;
+	}
+	private StringBuffer procExtenGpsTrailShowByTime(String[] data) {
+		List<UserGpsTrail> gpsList = new ArrayList<UserGpsTrail>();
+		String dateStart = slutils.dateFormatConvertS(data[2]);
+		String dateEnd = slutils.dateFormatConvertS(data[3]);
+		
+		gpsList = daoUserGpsTrail.findByNumberTime(data[1],dateStart,dateEnd);
+		StringBuffer buff = new StringBuffer();
+		for (UserGpsTrail trail : gpsList) {
+			buff.append(DISP_GPS_EXTEN_TRAIL_DATA).append(":");
+			buff.append(trail.getExten()).append(":");
+			buff.append(trail.getLng()).append(":");
+			buff.append(trail.getLat()).append(":");
+			String time = trail.getTime().toString();
+			int len = time.length();
+			buff.append(time.substring(0, len-2));
+			buff.append("\r\n");
+		}
+		return buff;
+	}
 	private StringBuffer procExtenGpsTrailShow(String[] data) {
 		List<UserGpsTrail> gpsList = new ArrayList<UserGpsTrail>();
 		gpsList = daoUserGpsTrail.findByNumber(data[1]);
 		StringBuffer buff = new StringBuffer();
 		for (UserGpsTrail trail : gpsList) {
-			buff.append("extenmapdata:");
+			buff.append(DISP_GPS_EXTEN_TRAIL_DATA).append(":");
 			buff.append(trail.getExten()).append(":");
 			buff.append(trail.getLng()).append(":");
 			buff.append(trail.getLat()).append(":");
-			buff.append(trail.getTime());
+			String time = trail.getTime().toString();
+			int len = time.length();
+			buff.append(time.substring(0, len-2));
 			buff.append("\r\n");
 		}
 		return buff;
 	}
-	
+
 	private int procExtenGpsDel(String[] data) {
 		String exten = data[1];
 		UserGpsInfo extenInfo = daoUserGpsInfo.findByNumber(exten);
-		if(extenInfo == null){
+		if (extenInfo == null) {
 			return -1;
 		}
 		int res = daoUserGpsInfo.delExtenGps(exten);
 		return res;
 	}
-	
+
 	private int procExtenGpsAdd(String[] data) {
 		String exten = data[1];
 		String lng = data[2];
 		String lat = data[3];
 		UserGpsInfo extenInfo = daoUserGpsInfo.findByNumber(exten);
-		if(extenInfo != null){
+		if (extenInfo != null) {
 			daoUserGpsInfo.updateGpsByNumber(exten, lng, lat);
 			daoUserGpsTrail.addExtenGpsTrail(exten, lng, lat);
 			return -1;
@@ -446,7 +500,7 @@ public class ProcClientRequest implements IMsgTypeDef {
 		int res = daoUserGpsInfo.addExtenGps(exten, lng, lat);
 		return res;
 	}
-	
+
 	private StringBuffer procExtenGpsShowAll() {
 		List<UserGpsInfo> gpsList = new ArrayList<UserGpsInfo>();
 		gpsList = daoUserGpsInfo.findAll();
@@ -461,7 +515,7 @@ public class ProcClientRequest implements IMsgTypeDef {
 		}
 		return buff;
 	}
-	
+
 	private StringBuffer procExtenGpsShow(String[] data) {
 		String name = data[1];
 		UserGpsInfo gpsInfo = new UserGpsInfo();
@@ -473,7 +527,7 @@ public class ProcClientRequest implements IMsgTypeDef {
 		buff.append(gpsInfo.getLng()).append(":");
 		buff.append(gpsInfo.getLat());
 		buff.append("\r\n");
-		
+
 		return buff;
 	}
 
@@ -563,12 +617,15 @@ public class ProcClientRequest implements IMsgTypeDef {
 		String timeStr = formatter.format(time);
 		String tempMeetNum = FS_MEET_PLAY_TYPE + timeStr;
 		Map<String, SipActiveInfo> map = initTerStatus.activeUserMap;
-
+//		for (Map.Entry<String, SipActiveInfo> entry : map.entrySet()) {
+//			System.out.println("key= " + entry.getKey() + " and value= "
+//					+ entry.getValue().getStatus());
+//		}
 		if (planMode.equals(DISP_BROAD_PLANMOD_NOW)) {
 			String[] callee = callees.split(",");
 			int calleeLen = callee.length;
 			for (int i = 0; i < calleeLen; i++) {
-				String status = map.get(callee[i]).getCallStatus();
+				String status = map.get(callee[i]).getStatus();
 				if (status.equals(TER_STATUS_REG)) {
 					StringBuffer buff = new StringBuffer();
 					buff.append("bgapi originate {origination_caller_id_number=000}/user");
@@ -660,7 +717,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 				cronBuff.append("*").append(" ");
 				cronBuff.append("?").append(" ");
 				cronBuff.append("*");
-				timerTask.delayMeetPlayAtCron(tempMeetNum, cmdBuff, cronBuff.toString());
+				timerTask.delayMeetPlayAtCron(tempMeetNum, cmdBuff,
+						cronBuff.toString());
 
 			} else if (planMode.equals(DISP_BROAD_PLANMOD_WEEK)) {
 				formatter = new SimpleDateFormat("yyyyMMddhhmmss");
@@ -676,7 +734,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 				daoPrePlayInfo.addPrePlayInfo(info);
 				try {
 					long delayTime = formatter.parse(dateInd).getTime();
-					timerTask.delayMeetPlayAtTimeWeekly(tempMeetNum, cmdBuff, delayTime);
+					timerTask.delayMeetPlayAtTimeWeekly(tempMeetNum, cmdBuff,
+							delayTime);
 				} catch (ParseException e) {
 					e.printStackTrace();
 				}
@@ -737,7 +796,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 					loopDisCallMeet(tempMeetNum, calleesBuff.toString());
 
 					break;
-				} else if (status.equals(TER_STATUS_REG) || status.equals(TER_STATUS_UNREG)) {
+				} else if (status.equals(TER_STATUS_REG)
+						|| status.equals(TER_STATUS_UNREG)) {
 					break;
 				}
 				try {
@@ -789,7 +849,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 					loopDisCallMeet(tempMeetNum, calleesBuff.toString());
 
 					break;
-				} else if (status.equals(TER_STATUS_REG) || status.equals(TER_STATUS_UNREG)) {
+				} else if (status.equals(TER_STATUS_REG)
+						|| status.equals(TER_STATUS_UNREG)) {
 					break;
 				}
 				try {
@@ -920,7 +981,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 		}
 		daoUserSip.updateTransByNumber(name, transfer);
 
-		procLinuxCmd.execCmd("/usr/bin/fs_manage -ft /usr/local/freeswitch/conf/fsmanage.conf");
+		procLinuxCmd
+				.execCmd("/usr/bin/fs_manage -ft /usr/local/freeswitch/conf/fsmanage.conf");
 		try {
 			Thread.sleep(1000);
 		} catch (InterruptedException e) {
@@ -1073,10 +1135,11 @@ public class ProcClientRequest implements IMsgTypeDef {
 		String name = data[1];
 		String passwd = data[2];
 		UserSip user = daoUserSip.findByNumber(name);
-		if(user == null){
-			return FAILURE;	
+		if (user == null) {
+			return FAILURE;
 		}
-		logger.debug("get user with name = {},passwd = {}", user.getName(), user.getPassword());
+		logger.debug("get user with name = {},passwd = {}", user.getName(),
+				user.getPassword());
 		if (passwd.equals(user.getPassword())) {
 			return SUCCESS;
 		}
@@ -1094,7 +1157,9 @@ public class ProcClientRequest implements IMsgTypeDef {
 			buff.append(list.get(i).getNumber() + ":");
 			buff.append(list.get(i).getName() + ":");
 			try {
-				buff.append(new String(list.get(i).getDepartment().getBytes("iso-8859-1"), "gb2312") + ":");
+				buff.append(new String(list.get(i).getDepartment()
+						.getBytes("iso-8859-1"), "gb2312")
+						+ ":");
 			} catch (UnsupportedEncodingException e) {
 				e.printStackTrace();
 			}
@@ -1108,12 +1173,13 @@ public class ProcClientRequest implements IMsgTypeDef {
 		StringBuffer buff = new StringBuffer();
 		@SuppressWarnings("static-access")
 		Map<String, SipActiveInfo> map = initTerStatus.activeUserMap;
-		Iterator<Map.Entry<String, SipActiveInfo>> iter = map.entrySet().iterator();
+		Iterator<Map.Entry<String, SipActiveInfo>> iter = map.entrySet()
+				.iterator();
 		while (iter.hasNext()) {
 			Map.Entry<String, SipActiveInfo> entry = iter.next();
 			buff.append("peer:");
 			buff.append(entry.getKey() + ":");
-//			logger.debug("get key from activeUserMap : {}",entry.getKey());
+			// logger.debug("get key from activeUserMap : {}",entry.getKey());
 			buff.append(entry.getValue().getStatus());
 			buff.append("\r\n");
 		}
@@ -1189,7 +1255,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 	private String getMeetMemberId(String meetNum, String number) {
 		String id = "0";
 		StringBuffer cmdBuff = new StringBuffer();
-		cmdBuff.append("fs_cli -H 192.168.8.12 -x 'conference ").append(meetNum).append(" list '");
+		cmdBuff.append("fs_cli -H 192.168.8.12 -x 'conference ")
+				.append(meetNum).append(" list '");
 		StringBuffer resBuff = procLinuxCmd.execCmd(cmdBuff.toString());
 		int start = 0;
 		int pos = 0;
@@ -1234,7 +1301,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 				buff.append(ConfigManager.getInstance().getDisMusicPath());
 				buff.append(music[j]).append("!");
 			} else {
-				buff.append(ConfigManager.getInstance().getDisMusicPath()).append(music[j]);
+				buff.append(ConfigManager.getInstance().getDisMusicPath())
+						.append(music[j]);
 			}
 		}
 		return buff.toString();
@@ -1247,7 +1315,8 @@ public class ProcClientRequest implements IMsgTypeDef {
 
 		int j = 0;
 		for (j = 0; j < musicLen; j++) {
-			String fileName = ConfigManager.getInstance().getDisMusicPath() + music[j];
+			String fileName = ConfigManager.getInstance().getDisMusicPath()
+					+ music[j];
 			File file = new File(fileName);
 			logger.debug("get music file length {}", file.length());
 			filePlaySecondEstimate += file.length() * 8 / 160;

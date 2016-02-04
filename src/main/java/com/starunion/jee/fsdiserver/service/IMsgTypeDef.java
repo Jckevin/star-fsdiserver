@@ -104,6 +104,8 @@ public interface IMsgTypeDef {
 	static final String DISP_GPS_EXTEN_SHOW_ALL = "showallextenmap";
 	static final String DISP_GPS_EXTEN_NOTIFY = "extenmapdata";
 	static final String DISP_GPS_EXTEN_TRAIL = "extenmaptrail";
+	static final String DISP_GPS_EXTEN_TRAIL_TIME = "extenmaptimetrail";
+	static final String DISP_GPS_EXTEN_TRAIL_DATA = "extenmaptraildata";
 	
 	
 	public final String ESL_EVENT_CUSTOM = "";
